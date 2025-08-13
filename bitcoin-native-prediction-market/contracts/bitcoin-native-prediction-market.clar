@@ -254,3 +254,36 @@
     
     (ok true)))
 
+(define-map market-oracles
+  { market-id: uint, oracle: principal }
+  { added-by: principal, weight: uint })
+
+(define-map liquidity-providers
+  { market-id: uint, provider: principal, outcome: (string-ascii 50) }
+  { amount: uint, block-added: uint })
+
+(define-map user-activity
+  principal
+  {
+    markets-participated: uint,
+    total-volume: uint,
+    last-activity-block: uint,
+    positions-count: uint,
+    wins: uint,
+    losses: uint
+  })
+
+(define-private (update-user-activity (user principal) (amount uint))
+  (let ((activity (default-to {
+                    markets-participated: u0,
+                    total-volume: u0,
+                    last-activity-block: stacks-block-height,
+                    positions-count: u0,
+                    wins: u0,
+                    losses: u0
+                  } (map-get? user-activity user))))
+    (map-set user-activity user
+      (merge activity {
+        total-volume: (+ (get total-volume activity) amount),
+        last-activity-block: stacks-block-height
+      }))))
