@@ -142,3 +142,58 @@
 ;; Get market details
 (define-read-only (get-market (market-id uint))
   (map-get? markets market-id))
+
+
+;; Get market outcome pool
+(define-read-only (get-outcome-pool (market-id uint) (outcome (string-ascii 50)))
+  (map-get? liquidity-pools { market-id: market-id, outcome: outcome }))
+
+;; Get user position
+(define-read-only (get-user-position (market-id uint) (user principal) (outcome (string-ascii 50)))
+  (map-get? positions { market-id: market-id, user: user, outcome: outcome }))
+
+;; Get oracle details
+(define-read-only (get-oracle (oracle-address principal))
+  (map-get? oracles oracle-address))
+
+;; Get market odds for an outcome
+(define-read-only (get-market-odds (market-id uint) (outcome (string-ascii 50)))
+  (let ((market (map-get? markets market-id))
+        (pool (map-get? liquidity-pools { market-id: market-id, outcome: outcome })))
+    (match market
+      market-data (match pool
+                    pool-data (let ((outcome-amount (get amount pool-data))
+                                   (total-liquidity (get total-liquidity market-data)))
+                                (if (> total-liquidity u0)
+                                  (ok (/ (* outcome-amount u1000) total-liquidity))
+                                  (ok u0)))
+                    (err error-invalid-market))
+      (err error-invalid-market))))
+
+;; Get dispute details
+(define-read-only (get-dispute (market-id uint))
+  (map-get? disputes market-id))
+
+;; Get market analytics
+(define-read-only (get-market-analytics (market-id uint))
+  (map-get? market-analytics market-id))
+
+
+;; Calculate potential winnings
+(define-read-only (calculate-potential-winnings (market-id uint) (outcome (string-ascii 50)) (amount uint))
+  (let ((market (map-get? markets market-id))
+        (pool (map-get? liquidity-pools { market-id: market-id, outcome: outcome })))
+    (match market
+      market-data (match pool
+                    pool-data (let ((outcome-amount (get amount pool-data))
+                                   (total-liquidity (get total-liquidity market-data))
+                                   (market-fee-amount (/ (* total-liquidity (get market-fee market-data)) u1000))
+                                   (oracle-fee-amount (/ (* total-liquidity (get oracle-fee market-data)) u1000))
+                                   (winnings-pool (- total-liquidity (+ market-fee-amount oracle-fee-amount))))
+                                (if (> outcome-amount u0)
+                                  (ok (/ (* winnings-pool amount) outcome-amount))
+                                  (ok u0)))
+                    (err error-invalid-market))
+      (err error-invalid-market))))
+
+
