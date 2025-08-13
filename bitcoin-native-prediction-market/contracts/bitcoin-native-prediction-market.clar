@@ -94,3 +94,51 @@
     status: (buff 1)
   })
 
+;; Market analytics
+(define-map market-analytics
+  uint
+  {
+    total-volume: uint,
+    unique-participants: uint,
+    last-trade-block: uint,
+    largest-position: uint,
+    price-history: (list 100 { block: uint, outcome: (string-ascii 50), price: uint })
+  })
+
+;; Update position data
+(define-private (update-position (market-id uint) (user principal) (outcome (string-ascii 50)) (amount uint))
+  (let ((position (default-to { amount: u0, claimed: false } 
+                   (map-get? positions { market-id: market-id, user: user, outcome: outcome }))))
+    (map-set positions
+      { market-id: market-id, user: user, outcome: outcome }
+      { amount: (+ (get amount position) amount), claimed: (get claimed position) })))
+
+;; Increase oracle stake
+(define-public (increase-oracle-stake (additional-stake uint))
+  (let ((oracle (unwrap! (map-get? oracles tx-sender) error-not-oracle)))
+    ;; Transfer additional stake to contract
+    (try! (stx-transfer? additional-stake tx-sender (as-contract tx-sender)))
+    
+    ;; Update oracle stake
+    (map-set oracles tx-sender
+      (merge oracle { stake: (+ (get stake oracle) additional-stake) }))
+    
+    (ok true)))
+
+;; Helper functions for enum conversions
+
+(define-private (get-market-status-buff (status (buff 1)))
+  status)
+
+(define-private (get-outcome-type-buff (type (buff 1)))
+  type)
+
+(define-private (get-oracle-status-buff (status (buff 1)))
+  status)
+
+(define-private (get-dispute-status-buff (status (buff 1)))
+  status)
+
+;; Get market details
+(define-read-only (get-market (market-id uint))
+  (map-get? markets market-id))
